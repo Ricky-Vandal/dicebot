@@ -10,7 +10,6 @@ CLEAR="/usr/bin/clear"
 # config
 BET_MIN=1
 BET_MAX=50
-BET_MAX_DEFAULT=${BET_MAX}
 BET_CURRENT=${BET_MIN}
 BET_ODDS=2
 BET_ADJUST_UP=2
@@ -91,10 +90,6 @@ else
 		echo "$(printdate) INFO: won: ${WON}, lost: ${LOST}, net ${NET}"
 		echo "$(printdate) INFO: placing bet #${GAMECOUNT}: ${BET_CURRENT}"
 
-		if [ "${BET_CURRENT}" -gt "${BET_MAX}" ]; then
-			BET_CURRENT=${BET_MAX}
-		fi
-
 		BET_RESULT=$(place_bet ${DICENAME} ${DICEID} ${BET_CURRENT} ${BET_ODDS})
 
 
@@ -108,6 +103,9 @@ else
 				BET_CURRENT=1
 			else
 				BET_CURRENT=$(echo ${BET_CURRENT}/${BET_ADJUST_DOWN}|${BC})
+				if [ "${BET_CURRENT}" -lt "${BET_MIN}" ]; then
+					BET_CURRENT=${BET_MIN}
+				fi
 			fi
 
 			WINCOUNT=$(echo ${WINCOUNT}+1|${BC})
@@ -119,8 +117,8 @@ else
 			echo
 			BET_CURRENT=$(echo ${BET_CURRENT}*${BET_ADJUST_UP}|${BC})
 
-			if [ "${BET_CURRENT}" -le "${BET_MIN}" ]; then	
-				BET_CURRENT=${BET_MIN}
+			if [ "${BET_CURRENT}" -gt "${BET_MAX}" ]; then	
+				BET_CURRENT=${BET_MAX}
 			fi			
 
 
