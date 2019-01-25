@@ -1,5 +1,4 @@
 #!/bin/bash
-echo "dicebot starting up..."
 
 # binaries
 CLI="${HOME}/bin/kmdice-cli"
@@ -7,16 +6,27 @@ JQ="/usr/bin/jq"
 BC="/usr/bin/bc"
 FIGLET="/usr/bin/figlet"
 CLEAR="/usr/bin/clear"
+${CLEAR}
 
-# config
+# min and max bet size
 BET_MIN=1
 BET_MAX=50
-BET_CURRENT=${BET_MIN}
+
+# odds
 BET_ODDS=2
+
+# bet size adjustment factors
 BET_ADJUST_UP=2
 BET_ADJUST_DOWN=3
 BET_FLOOR_POSITIVE=1
+
+# if won more than this, exit
+NET_EXIT=100
+
+# how little randtxs to we consider too little
 RANDTXS_LOW=500
+
+# name and id of dice game
 DICEID="5be49570c56d036abb08b6d084da93a8a86f58fc48db4a1086be95540d752d6f"
 DICENAME="KMDICE"
 
@@ -28,6 +38,8 @@ LOST=0
 NET=0
 ENTROPYTXS=$(${CLI} diceinfo ${DICEID}|${JQ} -r .entropytxs)
 GAMECOUNT=1 # start at 1!
+BET_CURRENT=${BET_MIN}
+
 
 # functions
 printdate(){
@@ -86,8 +98,15 @@ else
 	fi
 
 	while true; do
+		
+		if [ "${NET}" -ge "${NET_EXIT}" ]; then
+			echo "$(printdate) INFO: accumulated net of ${NET}. exiting!"
+			exit 1
+		fi
+
 		echo "$(printdate) INFO: balance: $(${CLI} getbalance)"
-		echo "$(printdate) INFO: wins: ${WINCOUNT}, losses: ${LOSSCOUNT}, $(echo ${WINCOUNT}+${LOSSCOUNT}|${BC}) total games"
+		echo "$(printdate) INFO: floor: ${BET_MIN}, ceil: ${BET_MAX}"
+		echo "$(printdate) INFO: wins: ${WINCOUNT}, losses: ${LOSSCOUNT}, $(echo ${WINCOUNT}+${LOSSCOUNT}|${BC}) total bets"
 		echo "$(printdate) INFO: won: ${WON}, lost: ${LOST}, net ${NET}"
 		echo "$(printdate) INFO: placing bet #${GAMECOUNT}: ${BET_CURRENT}"
 
