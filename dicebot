@@ -1,4 +1,5 @@
 #!/bin/bash
+echo "dicebot starting up..."
 
 # binaries
 CLI="${HOME}/bin/kmdice-cli"
@@ -96,7 +97,7 @@ else
 		if [ "$(echo ${BET_RESULT}|${JQ} -r .status)" == "win" ]; then
 			WON=$(echo ${WON}+$(echo ${BET_RESULT}|${JQ} -r .won)-${BET_CURRENT}|${BC})
 			NET=$(echo ${WON}-${LOST}|${BC})
-			${FIGLET} " WON  $(echo $(echo ${BET_RESULT}|${JQ} -r .won)-${BET_CURRENT}|${BC})  :-)  ${NET}"
+			${FIGLET} "WON $(echo $(echo ${BET_RESULT}|${JQ} -r .won)-${BET_CURRENT}|${BC}) :  ${NET}"
 			echo
 			
 			if [ "${NET}" -gt 0 ]; then
@@ -109,11 +110,17 @@ else
 			fi
 
 			WINCOUNT=$(echo ${WINCOUNT}+1|${BC})
-			echo "$(printdate)  WIN, lowering... ${BET_CURRENT} vvv"
+
+			if [ "${BET_CURRENT}" -le "${BET_MIN}" ]; then
+				echo "$(printdate) WIN, floor, next ${BET_CURRENT}"
+			else
+				echo "$(printdate)  WIN, lower, next ${BET_CURRENT}"
+			fi
+
 		elif [ "$(echo ${BET_RESULT}|${JQ} -r .status)" == "loss" ]; then
 			LOST=$(echo ${LOST}+${BET_CURRENT}|${BC})
 			NET=$(echo ${WON}-${LOST}|${BC})
-			${FIGLET} "LOST  ${BET_CURRENT}  :-(  ${NET}"
+			${FIGLET} "LOST ${BET_CURRENT} :  ${NET}"
 			echo
 			BET_CURRENT=$(echo ${BET_CURRENT}*${BET_ADJUST_UP}|${BC})
 
@@ -123,9 +130,15 @@ else
 
 
 			LOSSCOUNT=$(echo ${LOSSCOUNT}+1|${BC})
-			echo "$(printdate) LOSS, raising... ${BET_CURRENT} ^^^"
+
+			if [ "${BET_CURRENT}" -ge "${BET_MAX}" ]; then
+				echo "$(printdate) LOSS, ceil, next ${BET_CURRENT}"
+			else
+				echo "$(printdate) LOSS, raise, next: ${BET_CURRENT}"
+			fi
+
 		else
-			echo "$(printdate)  ERR, no game... ${BET_CURRENT} xxx"
+			echo "$(printdate)  ERR, no bet, next ${BET_CURRENT}"
 		fi
 		GAMECOUNT=$(echo ${WINCOUNT}+${LOSSCOUNT}|${BC})
 		sleep 3
