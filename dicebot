@@ -1,21 +1,19 @@
 #!/bin/bash
 
 # binaries
-CLI="${HOME}/bin/kmdice-cli"
-JQ="/usr/bin/jq"
-BC="/usr/bin/bc"
-FIGLET="/usr/bin/figlet"
-CLEAR="/usr/bin/clear"
-${CLEAR}
+CLI="${HOME}/bin/komodo-cli -ac_name=KMDICE"
+JQ=$(which jq || (echo "JQ not found!"; exit 1))
+BC=$(which bc || (echo "BC not found!"; exit 1))
+FIGLET=$(which figlet || (echo "FIGLET not found!"; exit 1))
+CLEAR=$(which clear || (echo "CLEAR not found!"; exit 1))
 
-# min and max bet size
+# min and max bet size, odds
 BET_MIN=1
-BET_MAX=50
-
-# odds
+BET_MAX=64
 BET_ODDS=2
 
 # bet size adjustment factors
+# reset to min on win while positive net
 BET_ADJUST_UP=2
 BET_ADJUST_DOWN=3
 BET_FLOOR_POSITIVE=1
@@ -49,6 +47,7 @@ printdate(){
 place_bet(){
 	if [ -z "${4}" ]; then	
 		echo "$(printdate) place_bet ERROR: not enough parameters given"
+		exit 1
 	else
 		P_HEX=$(${CLI} dicebet "${DICENAME}" "${DICEID}" ${BET_CURRENT} ${BET_ODDS})
 		P_HEX_RESULT=$(echo ${P_HEX}|${JQ} -r .result)
@@ -65,13 +64,14 @@ place_bet(){
 
 				P_STATUS=$(${CLI} dicestatus ${DICENAME} ${DICEID} ${P_TX})
 				while [ "$(echo ${P_STATUS}|${JQ} -r .status)" == "bet still pending" ]; do
-					sleep .3
-					P_STATUS=$(${CLI} dicestatus ${DICENAME} ${DICEID} ${P_TX})
+					sleep .25
+					P_STATUS="$(${CLI} dicestatus ${DICENAME} ${DICEID} ${P_TX})"
 				done
 				echo
-				echo ${P_STATUS}
+				echo "${P_STATUS}"
 			else
-				echo error
+				echo "$(printdate) place_bet ERROR: unknown error"
+				exit 1
 			fi
 		fi
 	fi
@@ -97,28 +97,46 @@ else
 		echo
 	fi
 
+	#
+	# MAIN LOOP
+	#
 	while true; do
-		
-		if [ "${NET}" -ge "${NET_EXIT}" ]; then
-			echo "$(printdate) INFO: accumulated net of ${NET}. exiting!"
-			exit 1
-		fi
 
+		# print status info	
 		echo "$(printdate) INFO: balance: $(${CLI} getbalance)"
 		echo "$(printdate) INFO: floor: ${BET_MIN}, ceil: ${BET_MAX}"
 		echo "$(printdate) INFO: wins: ${WINCOUNT}, losses: ${LOSSCOUNT}, $(echo ${WINCOUNT}+${LOSSCOUNT}|${BC}) total bets"
 		echo "$(printdate) INFO: won: ${WON}, lost: ${LOST}, net ${NET}"
-		echo "$(printdate) INFO: placing bet #${GAMECOUNT}: ${BET_CURRENT}"
 
+		# stop dicebot if > net treshold
+		if [ "${NET}" -ge "${NET_EXIT}" ]; then
+			echo "$(printdate) INFO: accumulated net of ${NET}. exiting!"
+			${FIGLET} ${NET}
+			echo
+			exit 1
+		fi
+
+		#
+		# PLACE BET
+		#
+		echo "$(printdate) INFO: placing bet #${GAMECOUNT}: ${BET_CURRENT}"
 		BET_RESULT=$(place_bet ${DICENAME} ${DICEID} ${BET_CURRENT} ${BET_ODDS})
 
 
 		if [ "$(echo ${BET_RESULT}|${JQ} -r .status)" == "win" ]; then
+			# 
+			# BET WON!
+			# 
+
+			# update counters
 			WON=$(echo ${WON}+$(echo ${BET_RESULT}|${JQ} -r .won)-${BET_CURRENT}|${BC})
 			NET=$(echo ${WON}-${LOST}|${BC})
+			WINCOUNT=$(echo ${WINCOUNT}+1|${BC})
+
+			# print banner
 			${FIGLET} "WON $(echo $(echo ${BET_RESULT}|${JQ} -r .won)-${BET_CURRENT}|${BC}) :  ${NET}"
-			echo
-			
+	
+			# calculate size of next bet	
 			if [ "${NET}" -gt 0 ]; then
 				BET_CURRENT=1
 			else
@@ -128,8 +146,7 @@ else
 				fi
 			fi
 
-			WINCOUNT=$(echo ${WINCOUNT}+1|${BC})
-
+			# print info about next bet
 			if [ "${BET_CURRENT}" -le "${BET_MIN}" ]; then
 				echo "$(printdate) WIN, floor, next ${BET_CURRENT}"
 			else
@@ -137,19 +154,25 @@ else
 			fi
 
 		elif [ "$(echo ${BET_RESULT}|${JQ} -r .status)" == "loss" ]; then
+			# 
+			# BET LOST!
+			#
+
+			# update counters
 			LOST=$(echo ${LOST}+${BET_CURRENT}|${BC})
 			NET=$(echo ${WON}-${LOST}|${BC})
-			${FIGLET} "LOST ${BET_CURRENT} :  ${NET}"
-			echo
-			BET_CURRENT=$(echo ${BET_CURRENT}*${BET_ADJUST_UP}|${BC})
+			LOSSCOUNT=$(echo ${LOSSCOUNT}+1|${BC})
 
+			# print banner
+			${FIGLET} "LOST ${BET_CURRENT} :  ${NET}"
+
+			# calculate size of next bet
+			BET_CURRENT=$(echo ${BET_CURRENT}*${BET_ADJUST_UP}|${BC})
 			if [ "${BET_CURRENT}" -gt "${BET_MAX}" ]; then	
 				BET_CURRENT=${BET_MAX}
 			fi			
 
-
-			LOSSCOUNT=$(echo ${LOSSCOUNT}+1|${BC})
-
+			# print info about next bet
 			if [ "${BET_CURRENT}" -ge "${BET_MAX}" ]; then
 				echo "$(printdate) LOSS, ceil, next ${BET_CURRENT}"
 			else
@@ -157,8 +180,13 @@ else
 			fi
 
 		else
+			#
+			# ERROR
+			#
 			echo "$(printdate)  ERR, no bet, next ${BET_CURRENT}"
 		fi
+
+		# update bet counter
 		GAMECOUNT=$(echo ${WINCOUNT}+${LOSSCOUNT}|${BC})
 		sleep 3
 		${CLEAR}
