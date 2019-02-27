@@ -15,11 +15,11 @@ BET_ODDS=2
 # bet size adjustment factors
 # reset to min on win while positive net
 BET_ADJUST_UP=2
-BET_ADJUST_DOWN=3
+BET_ADJUST_DOWN=4
 BET_FLOOR_POSITIVE=1
 
 # if won more than this, exit
-NET_EXIT=100
+NET_EXIT=250
 
 # how little randtxs to we consider too little
 RANDTXS_LOW=500
@@ -104,7 +104,7 @@ else
 
 		# print status info	
 		echo "$(printdate) INFO: balance: $(${CLI} getbalance)"
-		echo "$(printdate) INFO: floor: ${BET_MIN}, ceil: ${BET_MAX}"
+		echo "$(printdate) INFO: floor: ${BET_MIN}, ceil: ${BET_MAX}, stop: ${NET_EXIT}"
 		echo "$(printdate) INFO: wins: ${WINCOUNT}, losses: ${LOSSCOUNT}, $(echo ${WINCOUNT}+${LOSSCOUNT}|${BC}) total bets"
 		echo "$(printdate) INFO: won: ${WON}, lost: ${LOST}, net ${NET}"
 
